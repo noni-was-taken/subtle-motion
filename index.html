@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Subtle Motion Lab</title>
+<style>
+/* ---------- tokens (skill: Tokens) ---------- */
+:root {
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease-in: cubic-bezier(.55, 0, 1, .45);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --ease-settle: cubic-bezier(.34, 1.4, .64, 1);
+  --ease-spring: linear(0, .07 3%, .29 9%, .62 18%, .86 28%, 1.01 40%, 1.03 50%, 1.015 65%, 1);
+  --dur-press: 100ms;
+  --dur-fast: 150ms;
+  --dur-base: 250ms;
+  --dur-slow: 300ms;
+  --rise: 8px;
+
+  --bg: #f6f7f9; --surface: #fff; --ink: #16181d; --muted: #5b616b; --line: #e1e4e8;
+  --accent: #1f5fd1; --on-accent: #fff; --danger: #c93636; --ok: #2b8a52;
+  --swatch: #dde1e6; --knob: #fff; --card-a: #1f2633; --card-b: #3a4558; --chip: #c9a855; --on-card: #fff;
+  --r-ctl: 6px; --r-surf: 12px;
+  --t-s: 13px; --t-m: 15px; --t-l: 18px;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #121417; --surface: #1b1e23; --ink: #e9ebee; --muted: #9aa0a9; --line: #2b2f36; --accent: #6f9cff; --on-accent: #0b1020; --swatch: #343942; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --rise: 0px; }
+  *, *::before, *::after {
+    animation-duration: 1ms !important; animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important; scroll-behavior: auto !important;
+  }
+}
+/* before/after switch: kill all motion to compare */
+html.no-motion *, html.no-motion *::before, html.no-motion *::after { transition: none !important; animation: none !important; }
+html.show-hits .icon-btn::before { outline: 1px dashed var(--accent); }
+
+/* ---------- base ---------- */
+* { box-sizing: border-box; }
+body { margin: 0; font: var(--t-m)/1.5 system-ui, sans-serif; background: var(--bg); color: var(--ink); }
+header { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; justify-content: space-between;
+  padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--line); }
+header h1 { font-size: var(--t-l); margin: 0; white-space: nowrap; }
+.bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 80px; }
+.intro { color: var(--muted); max-width: 60ch; }
+.grid-demos { display: grid; gap: 40px 32px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+.demo { border-top: 1px solid var(--line); padding-top: 20px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.demo h2 { font-size: var(--t-l); margin: 0; text-wrap: balance; }
+.principle { display: block; margin-top: 2px; font-size: var(--t-s); font-weight: 400; color: var(--muted); }
+.demo p { margin: 0; color: var(--muted); font-size: var(--t-m); max-width: 60ch; }
+.stage { flex: 1; display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+label.chk { display: inline-flex; gap: 6px; align-items: center; font-size: var(--t-s); color: var(--muted); }
+input[type=text], input[type=password], input[type=tel] { font: inherit; padding: 10px 12px; border-radius: var(--r-ctl); border: 1px solid var(--line); background: var(--surface); color: var(--ink); width: 100%; font-size: 16px; }
+.field { display: block; }
+.err { color: var(--danger); font-size: var(--t-s); min-height: 18px; }
+
+/* ---------- Press: squash + hit area ---------- */
+.btn { position: relative; font: inherit; font-weight: 600; border: 0; border-radius: var(--r-ctl); padding: 10px 16px; min-height: 44px;
+  background: var(--ink); color: var(--bg); cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out); }
+.btn.ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+@media (hover: hover) { .btn:hover { transform: translateY(-1px); } }
+.btn:active { transform: scale(.97); transition-duration: var(--dur-press); }
+.icon-btn { position: relative; width: 24px; height: 24px; padding: 0; border: 0; background: none; color: var(--ink); cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease-out); }
+.icon-btn:active { transform: scale(.9); transition-duration: var(--dur-press); }
+.icon-btn::before { content: ""; position: absolute; inset: 50% auto auto 50%; width: 44px; height: 44px; translate: -50% -50%; }
+.icon-btn[aria-pressed="true"] { color: var(--danger); }
+
+/* ---------- Toggle: squash & stretch ---------- */
+.switch { position: relative; width: 48px; height: 28px; border-radius: 99px; border: 0; padding: 0; cursor: pointer;
+  background: var(--line); transition: background-color var(--dur-base) var(--ease-out); }
+.switch[aria-checked="true"] { background: var(--ok); }
+.switch .knob { position: absolute; top: 4px; left: 4px; width: 20px; height: 20px; border-radius: 99px; background: var(--knob);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .3); transition: transform var(--dur-base) var(--ease-settle); }
+.switch[aria-checked="true"] .knob { transform: translateX(20px); }
+.switch:active .knob { transform: scaleX(1.2); transform-origin: left; }
+.switch[aria-checked="true"]:active .knob { transform: translateX(20px) scaleX(1.2); transform-origin: right; }
+
+/* ---------- Send: anticipation ---------- */
+.send { display: inline-flex; gap: 8px; align-items: center; overflow: hidden; }
+@keyframes send { 0% { transform: none } 30% { transform: translate(-2px, 2px) } 100% { transform: translate(24px, -24px); opacity: 0 } }
+.send.is-sending svg { animation: send 280ms var(--ease-in-out) forwards; }
+
+/* ---------- Staging + lift ---------- */
+.cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; }
+.card { position: relative; border-radius: var(--r-surf); padding: 10px; background: var(--surface); border: 1px solid var(--line); font-size: var(--t-s); cursor: pointer;
+  transition: transform var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out); }
+.card i { display: block; height: 28px; background: var(--swatch); border-radius: var(--r-ctl); margin-bottom: 6px; }
+.card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / .35); opacity: 0; transition: opacity var(--dur-base) var(--ease-out); }
+@media (hover: hover) {
+  .card:hover { transform: translateY(-3px); }
+  .card:hover::after { opacity: 1; }
+  .cards:has(.card:hover) .card:not(:hover) { opacity: .6; }
+}
+
+/* ---------- Tilt: solid drawing ---------- */
+.cc { width: 240px; aspect-ratio: 1.586; border-radius: var(--r-surf); padding: 16px; color: var(--on-card); position: relative;
+  background: linear-gradient(135deg, var(--card-a), var(--card-b)); transition: transform var(--dur-base) var(--ease-out);
+  display: flex; flex-direction: column; justify-content: space-between; font-family: ui-monospace, monospace; }
+.cc .chip { width: 32px; height: 24px; border-radius: var(--r-ctl); background: var(--chip); }
+
+/* ---------- Toast + badge: follow through ---------- */
+.toast { position: fixed; left: 50%; bottom: 24px; translate: -50% 0; z-index: 10; display: flex; gap: 10px; align-items: center;
+  background: var(--ink); color: var(--bg); padding: 12px 16px; border-radius: var(--r-surf); box-shadow: 0 10px 30px rgb(0 0 0 / .25);
+  transition: transform var(--dur-slow) var(--ease-settle), opacity var(--dur-fast) var(--ease-out); }
+.toast[data-state="closed"] { transform: translateY(12px); opacity: 0; pointer-events: none; transition-timing-function: var(--ease-in); }
+.toast .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--ok); }
+.cart { position: relative; }
+.badge { position: absolute; top: -6px; right: -8px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 99px;
+  background: var(--accent); color: var(--on-accent); font-size: var(--t-s); font-weight: 700; font-variant-numeric: tabular-nums; display: grid; place-items: center;
+  transition: transform var(--dur-slow) var(--ease-settle); }
+.badge.bump { transform: scale(1.25); transition-duration: var(--dur-press); transition-timing-function: var(--ease-out); }
+.badge:empty { transform: scale(0); }
+
+/* ---------- Fly to cart: arcs ---------- */
+.fly-x { position: fixed; z-index: 20; pointer-events: none; transition: transform 300ms linear; }
+.fly-y { width: 16px; height: 16px; border-radius: 99px; background: var(--accent); transition: transform 300ms var(--ease-in); }
+.flying.fly-x { transform: translateX(var(--dx)); }
+.flying .fly-y { transform: translateY(var(--dy)) scale(.4); }
+.product { display: flex; gap: 12px; align-items: center; }
+.product .thumb { width: 56px; height: 56px; border-radius: var(--r-surf); background: var(--swatch); }
+
+/* ---------- Success ring + error shake + pending ---------- */
+.btn.is-success::after { content: ""; position: absolute; inset: -4px; border-radius: calc(var(--r-ctl) + 4px); border: 2px solid var(--ok);
+  animation: ring 400ms var(--ease-out) forwards; pointer-events: none; }
+@keyframes ring { from { opacity: .6; transform: scale(.95) } to { opacity: 0; transform: scale(1.15) } }
+@keyframes shake { 20%,60% { transform: translateX(-4px) } 40%,80% { transform: translateX(4px) } }
+.field[aria-invalid="true"] { animation: shake 280ms var(--ease-in-out); border-color: var(--danger); }
+.login { display: grid; gap: 8px; width: 100%; }
+.login .btn { width: 100%; }
+.spinner { display: none; width: 16px; height: 16px; border-radius: 99px; border: 2px solid currentColor; border-right-color: transparent;
+  animation: spin 600ms linear infinite; margin: 0 auto; }
+@keyframes spin { to { transform: rotate(1turn) } }
+.btn.is-pending .label { display: none; }
+.btn.is-pending .spinner { display: block; }
+
+/* ---------- Postel: format on blur ---------- */
+.fmt { transition: opacity var(--dur-fast) var(--ease-out); }
+.fmt.swap { opacity: 0; transition-duration: 0ms; }
+
+/* ---------- Reveal: slow in/out + chunking ---------- */
+.js .reveal { opacity: 0; transform: translateY(var(--rise));
+  transition: opacity var(--dur-slow) var(--ease-out), transform var(--dur-slow) var(--ease-out);
+  transition-delay: calc(min(var(--i, 0), 5) * 50ms); }
+.js .reveal.in { opacity: 1; transform: none; }
+.list { display: grid; gap: 8px; width: 100%; }
+.list > div { padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-surf); }
+
+/* ---------- Overlays: Jakob ---------- */
+dialog, [popover] { opacity: 0; transform: translateY(4px) scale(.98); border: 1px solid var(--line); border-radius: var(--r-surf);
+  background: var(--surface); color: var(--ink); padding: 16px; box-shadow: 0 20px 50px rgb(0 0 0 / .25);
+  transition: opacity var(--dur-fast) var(--ease-in), transform var(--dur-fast) var(--ease-in),
+              overlay var(--dur-fast) allow-discrete, display var(--dur-fast) allow-discrete; }
+dialog[open], [popover]:popover-open { opacity: 1; transform: none; transition-timing-function: var(--ease-out); transition-duration: var(--dur-base); }
+@starting-style { dialog[open], [popover]:popover-open { opacity: 0; transform: translateY(4px) scale(.98); } }
+dialog::backdrop { background: rgb(0 0 0 / .35); }
+#menu { margin: 0; transform-origin: top left; padding: 6px; min-width: 160px; }
+#menu button { display: block; width: 100%; text-align: left; font: inherit; color: inherit; background: none; border: 0; padding: 10px 12px; border-radius: var(--r-ctl); cursor: pointer; }
+@media (hover: hover) { #menu button:hover { background: var(--bg); } }
+
+/* ---------- Frequency of use: palette, instant ---------- */
+.palette { width: 100%; display: grid; gap: 2px; outline: none; }
+.palette div { padding: 8px 10px; border-radius: var(--r-ctl); }
+.palette div[aria-selected="true"] { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); } /* no transition, on purpose */
+
+/* ---------- Tabs: shared indicator, interruptible ---------- */
+/* equal-width tabs, so the folder surface only needs translateX (no width/scale) */
+.tabs { position: relative; display: flex; gap: 2px; padding: 0 8px; border-bottom: 1px solid var(--line); width: 100%; }
+.tabs button { position: relative; z-index: 1; flex: 0 0 96px; font: inherit; color: var(--muted); background: none; border: 0; cursor: pointer;
+  padding: 8px 0; min-height: 44px; transition: color var(--dur-fast) var(--ease-out), transform var(--dur-press) var(--ease-out); }
+@media (hover: hover) { .tabs button:not([aria-selected="true"]):hover { color: var(--ink); } }
+.tabs button:active { transform: translateY(1px); }
+.tabs button[aria-selected="true"] { color: var(--ink); }
+.tabs .folder { position: absolute; left: 0; top: 0; bottom: -1px; width: 96px; background: var(--surface);
+  border: 1px solid var(--line); border-bottom: 0; border-radius: var(--r-ctl) var(--r-ctl) 0 0;
+  transition: transform var(--dur-fast) var(--ease-out); }
+.tabpanel { color: var(--muted); width: 100%; margin-top: -12px; padding: 14px; min-height: 64px;
+  background: var(--surface); border: 1px solid var(--line); border-top: 0; border-radius: 0 0 var(--r-surf) var(--r-surf); }
+
+/* ---------- Accordion: height via interpolate-size ---------- */
+:root { interpolate-size: allow-keywords; }
+details { width: 100%; border: 1px solid var(--line); border-radius: var(--r-surf); padding: 0 12px; background: var(--surface); }
+details + details { margin-top: 6px; }
+summary { cursor: pointer; padding: 10px 0; min-height: 44px; display: flex; align-items: center; }
+details::details-content { block-size: 0; overflow: clip; opacity: 0;
+  transition: block-size var(--dur-base) var(--ease-out), opacity var(--dur-base) var(--ease-out), content-visibility var(--dur-base) allow-discrete; }
+details[open]::details-content { block-size: auto; opacity: 1; }
+details p { padding-bottom: 10px; }
+
+/* ---------- Steps: directional ---------- */
+.steps { display: grid; width: 100%; }
+.step { grid-area: 1 / 1; padding: 12px; border-radius: var(--r-surf); background: var(--surface); border: 1px solid var(--line);
+  transition: opacity var(--dur-base) var(--ease-out), transform var(--dur-base) var(--ease-out); }
+.step[data-from="next"] { opacity: 0; transform: translateX(12px); pointer-events: none; }
+.step[data-from="prev"] { opacity: 0; transform: translateX(-12px); pointer-events: none; }
+
+/* ---------- Toast stack ---------- */
+.toasts { position: fixed; left: 50%; bottom: 24px; translate: -50% 0; z-index: 10; display: grid; }
+.toasts .toast { grid-area: 1 / 1; position: static; translate: none; transform-origin: bottom center;
+  transform: translateY(calc(var(--i) * -10px)) scale(calc(1 - var(--i) * .05));
+  transition: transform var(--dur-slow) var(--ease-spring), opacity var(--dur-fast) var(--ease-out); }
+.toasts .toast:nth-last-child(n+4) { opacity: 0; }
+.toasts .toast[data-state="closed"] { transform: translateY(12px); opacity: 0; transition-timing-function: var(--ease-in); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; transition: outline-offset var(--dur-fast) var(--ease-out); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Subtle Motion Lab</h1>
+  <div class="bar">
+    <label class="chk"><input type="checkbox" id="motionOff"> Motion off (before)</label>
+    <label class="chk"><input type="checkbox" id="showHits"> Show hit areas</label>
+    <button class="icon-btn cart" id="cart" aria-label="Cart">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 4h2l2.4 11h11L21 7H6"/><circle cx="9" cy="20" r="1.5"/><circle cx="18" cy="20" r="1.5"/></svg>
+      <span class="badge" id="badge"></span>
+    </button>
+  </div>
+</header>
+
+<main>
+  <p class="intro">Each tile tests one pattern from the <code>subtle-motion</code> skill. Tick <b>Motion off</b> to compare before and after. Try reduced motion in DevTools &gt; Rendering, and the device toolbar for touch.</p>
+
+  <section class="grid-demos">
+    <div class="demo">
+      <h2>Press + hit area <span class="principle">1 Squash · Fitts</span></h2>
+      <p>Button squashes to 0.97 on press. The 24px heart has a 44px hit area (toggle "Show hit areas").</p>
+      <div class="stage">
+        <button class="btn">Press me</button>
+        <button class="icon-btn" id="like" aria-pressed="false" aria-label="Like">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21s-7-4.4-9.5-8.5C.8 9.6 2.5 5 6.6 5c2.2 0 3.6 1.3 4.4 2.5C11.8 6.3 13.2 5 15.4 5c4.1 0 5.8 4.6 4.1 7.5C19 16.6 12 21 12 21z"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="demo">
+      <h2>Toggle <span class="principle">1 Squash &amp; stretch · 5 Follow through</span></h2>
+      <p>Hold the switch: the knob stretches. Release: it travels and settles with a small overshoot.</p>
+      <div class="stage"><button class="switch" role="switch" aria-checked="false" aria-label="Notifications"><span class="knob"></span></button></div>
+    </div>
+
+    <div class="demo">
+      <h2>Send <span class="principle">2 Anticipation</span></h2>
+      <p>The plane pulls back 2px before it flies. Used only on rare commit actions.</p>
+      <div class="stage">
+        <button class="btn send" id="send"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M2 21 23 12 2 3v7l15 2-15 2z"/></svg><span>Send</span></button>
+      </div>
+    </div>
+
+    <div class="demo">
+      <h2>Card focus <span class="principle">3 Staging · 11 Depth</span></h2>
+      <p>Hover one card: it lifts, siblings dim. One thing gets the eye.</p>
+      <div class="stage"><div class="cards">
+        <div class="card"><i></i>Ramen</div>
+        <div class="card"><i></i>Sushi</div>
+        <div class="card"><i></i>Tacos</div>
+        <div class="card"><i></i>Pasta</div>
+        <div class="card"><i></i>Curry</div>
+        <div class="card"><i></i>Pho</div>
+      </div></div>
+    </div>
+
+    <div class="demo">
+      <h2>Tilt <span class="principle">11 Solid drawing</span></h2>
+      <p>Move the pointer over the card: at most 6° tilt, rAF-throttled. Mouse only.</p>
+      <div class="stage"><div class="cc tilt"><span class="chip"></span><span>•••• 4821</span></div></div>
+    </div>
+
+    <div class="demo">
+      <h2>Add to cart <span class="principle">7 Arcs · 5 Follow through</span></h2>
+      <p>The dot flies to the cart on a curve (X linear, Y ease-in). The badge pops and settles.</p>
+      <div class="stage"><div class="product"><span class="thumb"></span><div><b>Ramen kit</b><br><button class="btn" id="add">Add</button></div></div></div>
+    </div>
+
+    <div class="demo">
+      <h2>Login <span class="principle">10 Exaggerate · 8 Secondary · Doherty</span></h2>
+      <p>Wrong password shakes. The spinner shows only if a request takes over 400ms. Success fires a ring. Password: <code>motion</code></p>
+      <form class="login" id="login" novalidate>
+        <input class="field" type="password" id="pw" placeholder="Password" aria-describedby="pwErr" autocomplete="off">
+        <span class="err" id="pwErr" aria-live="polite"></span>
+        <button class="btn" id="loginBtn"><span class="label">Log in</span><span class="spinner"></span></button>
+      </form>
+    </div>
+
+    <div class="demo">
+      <h2>Messy in, clean out <span class="principle">Postel's law</span></h2>
+      <p>Type a 10-digit phone number any way you like (dots, dashes, spaces, +1), then click outside the field. It gets cleaned up to <code>(415) 555-0132</code> with a 150ms fade.</p>
+      <div class="stage" style="flex-direction:column;align-items:stretch">
+        <input class="fmt" type="tel" id="phone" placeholder="e.g. 415.555 0132" aria-describedby="phoneHint">
+        <span class="err" id="phoneHint" aria-live="polite"></span>
+      </div>
+    </div>
+
+    <div class="demo">
+      <h2>Toast stack <span class="principle">5 Follow through · Miller</span></h2>
+      <p>Click several times. New toasts spring in, older ones tuck behind, and at most 3 are visible. Each leaves with ease-in.</p>
+      <div class="stage"><button class="btn ghost" id="toastBtn">Show toast</button></div>
+    </div>
+
+    <div class="demo">
+      <h2>Overlays <span class="principle">Jakob's law</span></h2>
+      <p>The menu grows from its trigger; the modal fades and scales from the center. Native popover and dialog.</p>
+      <div class="stage">
+        <button class="btn ghost" id="menuBtn" popovertarget="menu">Menu ▾</button>
+        <button class="btn ghost" id="dlgBtn">Open modal</button>
+      </div>
+    </div>
+
+    <div class="demo">
+      <h2>Command palette <span class="principle">Frequency of use</span></h2>
+      <p>Click the list, then use ↑/↓. Selection is instant because it's used constantly.</p>
+      <div class="stage"><div class="palette" id="palette" tabindex="0" role="listbox" aria-label="Commands">
+        <div role="option" aria-selected="true">New file</div><div role="option">Open recent</div><div role="option">Search docs</div><div role="option">Settings</div><div role="option">Toggle theme</div>
+      </div></div>
+    </div>
+
+    <div class="demo">
+      <h2>Tabs <span class="principle">Frequency of use · Jakob</span></h2>
+      <p>Folder tabs: the selected tab joins the panel, and that folder surface slides to the tab you click (150ms, transform only). Click fast between tabs: it changes course mid-slide. The content swaps instantly.</p>
+      <div class="tabs" role="tablist" id="tabs">
+        <button role="tab" aria-selected="true">Overview</button><button role="tab">Activity</button><button role="tab">Settings</button><span class="folder" aria-hidden="true"></span>
+      </div>
+      <div class="tabpanel" id="tabpanel">Overview content</div>
+    </div>
+
+    <div class="demo">
+      <h2>Accordion <span class="principle">Layout exception</span></h2>
+      <p>Native details with height interpolated to auto. Older browsers open instantly.</p>
+      <details><summary>What is follow through?</summary><p>Parts keep moving after the main body stops, then settle.</p></details>
+      <details><summary>Why under 300ms?</summary><p>Duration sets the feel. Anything slower reads as lag.</p></details>
+    </div>
+
+    <div class="demo">
+      <h2>Steps <span class="principle">Spatial · Jakob</span></h2>
+      <p>Next comes in from the right, Back from the left. 12px with a crossfade.</p>
+      <div class="steps" id="steps">
+        <div class="step"><b>1.</b> Your details</div>
+        <div class="step" data-from="next"><b>2.</b> Shipping</div>
+        <div class="step" data-from="next"><b>3.</b> Pay</div>
+      </div>
+      <div class="stage" style="flex:0"><button class="btn ghost" id="prev">Back</button><button class="btn" id="next">Next</button></div>
+    </div>
+  </section>
+
+  <h2 style="margin:48px 0 8px">6 Slow in &amp; out · Miller: scroll reveal</h2>
+  <p class="intro">Below the fold, revealed once, staggered 50ms and capped at 6 steps. Disable JS and everything is still visible.</p>
+  <div class="list" style="margin-top:12px">
+    <div class="reveal" style="--i:0">Chunk 1 · ease-out rise of 8px</div>
+    <div class="reveal" style="--i:1">Chunk 2</div>
+    <div class="reveal" style="--i:2">Chunk 3</div>
+    <div class="reveal" style="--i:3">Chunk 4</div>
+    <div class="reveal" style="--i:4">Chunk 5</div>
+    <div class="reveal" style="--i:5">Chunk 6</div>
+    <div class="reveal" style="--i:6">Chunk 7 · stagger capped, arrives with chunk 6</div>
+  </div>
+</main>
+
+<div popover id="menu">
+  <button>Rename</button><button>Duplicate</button><button>Delete</button>
+</div>
+<dialog id="dlg">
+  <h3 style="margin-top:0">Modal</h3>
+  <p>Fade + scale 0.98 → 1, 250ms ease-out. Closes in 150ms ease-in.</p>
+  <form method="dialog"><button class="btn">Close</button></form>
+</dialog>
+<div class="toasts" id="toasts" role="status"></div>
+
+<script>
+const $ = (s) => document.querySelector(s);
+const html = document.documentElement;
+
+// reveal (progressive)
+html.classList.add('js');
+const io = new IntersectionObserver((es) => {
+  for (const e of es) if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+}, { rootMargin: '0px 0px -10% 0px' });
+document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+
+// lab switches
+$('#motionOff').onchange = (e) => html.classList.toggle('no-motion', e.target.checked);
+$('#showHits').onchange = (e) => html.classList.toggle('show-hits', e.target.checked);
+
+// like + switch
+$('#like').onclick = (e) => { const b = e.currentTarget; b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') !== 'true'); };
+document.querySelectorAll('.switch').forEach((s) => s.onclick = () => s.setAttribute('aria-checked', s.getAttribute('aria-checked') !== 'true'));
+
+// send: anticipation
+$('#send').onclick = (e) => {
+  const b = e.currentTarget; b.classList.remove('is-sending'); void b.offsetWidth; b.classList.add('is-sending');
+  setTimeout(() => b.classList.remove('is-sending'), 700);
+};
+
+// tilt
+if (matchMedia('(hover: hover) and (prefers-reduced-motion: no-preference)').matches) {
+  for (const el of document.querySelectorAll('.tilt')) {
+    let raf = 0;
+    el.addEventListener('pointermove', (e) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect();
+        const x = (e.clientX - r.left) / r.width - .5, y = (e.clientY - r.top) / r.height - .5;
+        el.style.transform = `perspective(800px) rotateX(${-y * 6}deg) rotateY(${x * 6}deg)`;
+      });
+    });
+    el.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); el.style.transform = ''; });
+  }
+}
+
+// fly to cart: arcs + badge follow-through
+let count = 0;
+$('#add').onclick = (e) => {
+  const from = e.currentTarget.getBoundingClientRect(), to = $('#cart').getBoundingClientRect();
+  const bump = () => { const b = $('#badge'); b.textContent = ++count; b.classList.add('bump'); setTimeout(() => b.classList.remove('bump'), 100); };
+  if (html.classList.contains('no-motion') || matchMedia('(prefers-reduced-motion: reduce)').matches) return bump();
+  const x = document.createElement('div'); x.className = 'fly-x';
+  x.innerHTML = '<div class="fly-y"></div>';
+  x.style.left = from.left + from.width / 2 - 8 + 'px'; x.style.top = from.top + from.height / 2 - 8 + 'px';
+  x.style.setProperty('--dx', (to.left + to.width / 2) - (from.left + from.width / 2) + 'px');
+  x.style.setProperty('--dy', (to.top + to.height / 2) - (from.top + from.height / 2) + 'px');
+  document.body.append(x);
+  requestAnimationFrame(() => requestAnimationFrame(() => x.classList.add('flying')));
+  setTimeout(() => { x.remove(); bump(); }, 300);
+};
+
+// login: shake / pending / success ring
+$('#login').onsubmit = (e) => {
+  e.preventDefault();
+  const pw = $('#pw'), btn = $('#loginBtn'), err = $('#pwErr');
+  pw.removeAttribute('aria-invalid'); btn.classList.remove('is-success'); err.textContent = '';
+  const ok = pw.value === 'motion';
+  const pending = setTimeout(() => btn.classList.add('is-pending'), 400); // Doherty: progress only if slow
+  setTimeout(() => {                                                         // fake request: 250ms or 900ms
+    clearTimeout(pending); btn.classList.remove('is-pending');
+    if (ok) { void btn.offsetWidth; btn.classList.add('is-success'); err.textContent = ''; }
+    else { void pw.offsetWidth; pw.setAttribute('aria-invalid', 'true'); err.textContent = 'Wrong password'; }
+  }, ok ? 900 : 250);
+};
+
+// Postel: clean on blur, crossfade
+$('#phone').addEventListener('blur', (e) => {
+  const el = e.target, hint = $('#phoneHint');
+  let d = el.value.replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '1') d = d.slice(1); // accept +1 prefix
+  hint.textContent = d && d.length !== 10 ? `${d.length} digits, need 10` : '';
+  if (d.length !== 10) return;
+  const clean = `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  if (clean === el.value) return;
+  el.classList.add('swap');
+  requestAnimationFrame(() => { el.value = clean; requestAnimationFrame(() => el.classList.remove('swap')); });
+});
+
+// toast stack
+let tn = 0;
+const restack = () => { const live = [...$('#toasts').children].filter((t) => t.dataset.state !== 'closed').reverse();
+  live.forEach((t, i) => t.style.setProperty('--i', i)); };
+$('#toastBtn').onclick = () => {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.dataset.state = 'closed'; t.style.setProperty('--i', 0);
+  t.innerHTML = `<span class="dot"></span>Payment ${++tn} received`;
+  $('#toasts').append(t);
+  requestAnimationFrame(() => requestAnimationFrame(() => { t.dataset.state = 'open'; restack(); }));
+  setTimeout(() => { t.dataset.state = 'closed'; restack(); setTimeout(() => t.remove(), 200); }, 3000);
+};
+
+// tabs: folder surface slides (transform only, interruptible); content swaps instantly
+const tabs = $('#tabs'), folder = tabs.querySelector('.folder');
+const moveFolder = (tab) => folder.style.transform = `translateX(${tab.offsetLeft}px)`;
+moveFolder(tabs.querySelector('[aria-selected="true"]'));
+tabs.addEventListener('click', (e) => {
+  const tab = e.target.closest('[role=tab]'); if (!tab) return;
+  tabs.querySelector('[aria-selected="true"]').removeAttribute('aria-selected');
+  tab.setAttribute('aria-selected', 'true'); moveFolder(tab);
+  $('#tabpanel').textContent = tab.textContent + ' content';
+});
+
+// steps: directional
+let step = 0;
+const steps = [...$('#steps').children];
+const go = (d) => {
+  const n = Math.min(steps.length - 1, Math.max(0, step + d)); if (n === step) return;
+  steps.forEach((s, i) => i === n ? s.removeAttribute('data-from') : s.dataset.from = i > n ? 'next' : 'prev');
+  step = n;
+};
+$('#next').onclick = () => go(1); $('#prev').onclick = () => go(-1);
+
+// menu: place under trigger (one rect read before opening)
+$('#menu').addEventListener('beforetoggle', (e) => {
+  if (e.newState !== 'open') return;
+  const r = $('#menuBtn').getBoundingClientRect();
+  Object.assign(e.target.style, { position: 'fixed', left: r.left + 'px', top: r.bottom + 6 + 'px' });
+});
+$('#dlgBtn').onclick = () => $('#dlg').showModal();
+
+// palette: instant selection
+$('#palette').addEventListener('keydown', (e) => {
+  if (!['ArrowDown', 'ArrowUp'].includes(e.key)) return;
+  e.preventDefault();
+  const items = [...e.currentTarget.children], i = items.findIndex((n) => n.getAttribute('aria-selected') === 'true');
+  const n = (i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length;
+  items[i].removeAttribute('aria-selected'); items[n].setAttribute('aria-selected', 'true');
+});
+$('#palette').addEventListener('click', (e) => {
+  if (e.target.role !== 'option') return;
+  e.currentTarget.querySelector('[aria-selected]')?.removeAttribute('aria-selected');
+  e.target.setAttribute('aria-selected', 'true');
+});
+</script>
+</body>
+</html>
