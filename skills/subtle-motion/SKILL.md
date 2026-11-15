@@ -385,4 +385,6 @@ If `agent-browser` is available, run 1, 4 and 5 with it and screenshot. Otherwis
 - Bounce/elastic on buttons or text, typing effects, infinite pulses on CTAs
 - Animated keyboard navigation / tab switches (frequency of use)
 - Hover-only affordances with no touch equivalent
+- A colored bar down the left edge of the selected/active row (palette, sidebar, list). Use a plain background fill and ink-colored text instead.
+- A thin accent underline gliding under tabs. Slide a folder or segmented surface instead.
 - AOS/WOW/GSAP added just for fade-ups
