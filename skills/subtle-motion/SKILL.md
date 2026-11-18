@@ -1,11 +1,13 @@
 ---
 name: subtle-motion
-description: Add subtle, polished animations to any website (plain HTML/CSS, React, Next, Vue, Svelte, Astro) so it feels better without feeling "animated", while staying responsive and jank-free at 60fps on low-end phones. Applies the 12 Disney animation principles adapted for UI plus the motion-relevant Laws of UX (Fitts, Hick, Miller, Doherty, Postel, Jakob, frequency of use). Use when the user types /subtle-motion, or asks to "make the site feel nicer/smoother", "add subtle animations", "add micro-interactions", "polish the motion", "add scroll reveals", "add hover effects", or "make it feel less static". Prefer this over `animate` unless the user wants Framer Motion / React-specific patterns.
+description: Add subtle, polished animations to any website (plain HTML/CSS, React, Next, Vue, Svelte, Astro) so it feels better without feeling "animated", while staying responsive and jank-free at 60fps on low-end phones. Applies the 12 Disney animation principles adapted for UI plus the motion-relevant Laws of UX (Fitts, Hick, Miller, Doherty, Postel, Jakob, frequency of use). Leans toward more motion rather than less. Use when the user types /subtle-motion, or asks to "make the site feel nicer/smoother", "add subtle animations", "add micro-interactions", "polish the motion", "add scroll reveals", "add hover effects", or "make it feel less static". Prefer this over `animate` unless the user wants Framer Motion / React-specific patterns.
 ---
 
 # Subtle Motion
 
 Motion is seasoning. The user should feel the site is "smooth", never notice "an animation".
+
+**Lean toward more motion, not less.** Missing motion makes a site feel flat and nobody asks for it; extra motion is easy to tone down later. When unsure whether something should animate, animate it, keeping it small and fast. The hard rules below are about *how* things move (performance, accessibility, timing), not about how many things move.
 Sources: Disney's *The Illusion of Life*, Jon Yablonski's *Laws of UX*, Raphael Salaja's userinterface.wiki, Emil Kowalski (frequency of use).
 
 ## Hard rules (never break)
@@ -14,13 +16,13 @@ Sources: Disney's *The Illusion of Life*, Jon Yablonski's *Laws of UX*, Raphael 
 2. **Snappy timing: UI motion under 300ms.** Press 80–120ms, hover 150ms, enter 200–300ms, exit ≈ 70% of enter. Only a one-time hero may go to 500ms.
 3. **Small distances.** Translate 2–16px, scale 0.97–1.03, rotate ≤ 6°. Bigger reads as "animated".
 4. **Slow in & slow out.** Never `linear` on movement. Ease-out to enter, ease-in to exit.
-5. **Frequency of use: the more often it's used, the less it animates.** Keyboard navigation, command palettes, tabs used 100x/day, list selection: instant (0ms) or a ≤100ms fade. Animate first-time and rare moments, not repeated ones.
+5. **Frequency of use sets the size, not whether it moves.** Frequent clicks (filters, sort, tabs, segmented controls, list selection) still get motion, just shorter and smaller: a ≤150ms slide or a ≤200ms fade of the result. Only keyboard-repeat actions (arrow keys through a list or palette, typing in search) stay instant, because they fire many times a second.
 6. **Doherty threshold: respond within 100ms, finish within 400ms.** Feedback (press state, pending state) starts on the same frame as input. Anything slower than 400ms shows progress.
 7. **`prefers-reduced-motion: reduce` kills movement.** Opacity fades may stay.
 8. **Hover effects only under `@media (hover: hover)`.** Touch gets sticky hovers otherwise.
 9. **CSS first, no animation libraries** unless the project already has one. No JS loops when CSS can do it.
 10. **Never delay or hide content.** Reveals must not hide content if JS fails, block clicks, or animate the LCP element on load.
-11. **Staging: one focal motion at a time.** Max ~5 motion touchpoints per page; never two things competing for the eye in the same moment.
+11. **Staging: one focal motion at a time.** Cover as many touchpoints as the page has; just never two things competing for the eye in the same moment.
 12. **`will-change` only during the animation** (or on ≤3 persistent elements).
 13. **Interruptible by default.** State that can flip mid-flight (hover, toggle, open/close, tab indicator) uses `transition`, which retargets from wherever it is. `@keyframes` only for one-shot moments (shake, ring, send) that restart cleanly.
 14. **Scale duration to size and initiator.** Small elements faster than big ones (icon 100ms, card 250ms, sheet 300ms). User-initiated = immediate; system-initiated (toast, background update) may take the slow end.
@@ -59,15 +61,17 @@ Pick the ones that fit the touchpoint; never all at once. Each maps to a pattern
 ## Workflow
 
 1. **Read the site first.** Framework, CSS approach (Tailwind, CSS modules, plain), existing motion and tokens. Reuse them.
-2. **Classify each interactive element by frequency**: rare (signup, checkout, success), occasional (cards, sections, modals), frequent (nav, tabs, palettes, list rows). Frequent gets ≤100ms or nothing.
-3. **Pick ≤5 touchpoints**, ranked by feel-per-cost:
+2. **Classify each interactive element by frequency**: rare (signup, checkout, success), occasional (cards, sections, modals), frequent (nav, tabs, filters, sort, list rows), keyboard-repeat (arrow keys, typing). Rare gets the richest motion, frequent gets short slides and fades, keyboard-repeat gets none.
+3. **Cover every touchpoint the page has**, starting with these (ranked by feel-per-cost), then everything else that changes state on a click:
    1. Buttons/links: press squash + hit area (principles 1, Fitts)
    2. Form feedback: error shake, success ring, pending state (10, 8, Doherty)
    3. Cards: hover lift, optional tilt (11)
    4. Sections: scroll reveal, chunked stagger (6, Miller)
    5. Overlays/toasts: enter/exit with follow-through (5, Jakob)
+   6. Filters, sort and tabs: sliding selection + results fade in (rule 5)
+   7. Anything that appears or disappears on click (undo rows, confirmations, empty states): fade or rise in
 4. **Add the tokens** once, globally.
-5. **Apply patterns** to the chosen touchpoints only.
+5. **Apply patterns** to every touchpoint from step 3. Leaving one static should be a decision with a reason (keyboard-repeat, LCP), not the default.
 6. **Verify** (last section). Not done until verified.
 7. **Report**: each touchpoint with file:line, the principle it applies, and how to see it.
 
@@ -275,7 +279,7 @@ dialog[open], [popover]:popover-open {
 }
 ```
 
-Command palette / menu opened by keyboard many times a day: frequency of use says skip the transition.
+Command palette / menu opened by keyboard many times a day: keep the open to a ≤100ms fade; arrow-key movement inside it stays instant.
 
 ### Tabs: folder surface that slides (not an accent underline)
 
@@ -284,7 +288,7 @@ The AI/template tell is the **thin accent underline**, not the motion. Use a fam
 - **Folder tabs** (preferred): the selected tab's surface merges into the panel and slides to the clicked tab.
 - **Segmented control**: for 2–4 options; the pressed-in segment slides the same way.
 
-Make tabs equal width so the surface only needs `translateX` (no width or `scaleX`, which distorts radius and border). Use a ≤150ms transition so it stays interruptible. Content swaps instantly (frequency of use).
+Make tabs equal width so the surface only needs `translateX` (no width or `scaleX`, which distorts radius and border). Use a ≤150ms transition so it stays interruptible. The panel content crossfades in ≤150ms (opacity only).
 
 ```css
 .tabs { position: relative; display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
@@ -301,6 +305,52 @@ const move = (tab) => folder.style.transform = `translateX(${tab.offsetLeft}px)`
 ```
 
 Tab labels too uneven for equal widths? Let the surface jump without animating, and keep only the 1px press. Use View Transitions with a shared `view-transition-name` only for page-level swaps; they can't be interrupted.
+
+### Sliding selection: filter chips and segmented controls
+
+Same idea as folder tabs, for a row of filter chips or a sort toggle: one ink surface slides under the selected option, and the chips stay transparent. When the surface has no radius or border, `scaleX` on a 1px-wide element is safe, so the chips can have uneven widths and can wrap to two rows.
+
+```css
+.choices { position: relative; display: inline-flex; flex-wrap: wrap; isolation: isolate; }
+.choices .chip { position: relative; z-index: 1; background: transparent; }
+.choices .chip[aria-pressed="true"] { color: var(--on-ink); }
+.slider { position: absolute; left: 0; top: 0; width: 1px; background: var(--ink); transform-origin: 0 0; pointer-events: none; }
+.slider.ready { transition: transform var(--dur-fast) var(--ease-out); }   /* added after first paint: no slide on load */
+```
+
+```js
+const slide = (group) => {
+  const on = group.querySelector('[aria-pressed="true"]'), s = group.querySelector('.slider');
+  s.style.height = on.offsetHeight + 'px';
+  s.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop}px) scaleX(${on.offsetWidth})`;
+};
+new ResizeObserver(() => slide(group)).observe(group);   // re-place when chips wrap
+```
+
+### Results refresh: filter and sort
+
+When a click changes a list (filter, sort, category), the new items fade in with a short rise and a capped stagger. Not on first load (LCP) and not on each search keystroke (keyboard-repeat).
+
+```css
+@keyframes item-in { from { opacity: 0; transform: translateY(6px); } }
+.item.enter { animation: item-in 200ms var(--ease-out) both; animation-delay: calc(min(var(--i, 0), 6) * 30ms); }
+```
+
+```js
+// after re-rendering the list because of a click:
+[...list.children].forEach((el, i) => { el.style.setProperty('--i', i); el.classList.add('enter'); });
+```
+
+### Appear on click: undo rows, confirmations, empty states
+
+Anything that shows up because of a click fades in (150ms), or fades and rises 8px if it's a rare moment like "order placed".
+
+```css
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(8px); } }
+.undo-row { animation: fade-in var(--dur-fast) var(--ease-out); }
+.confirmation:not([hidden]) { animation: rise-in var(--dur-base) var(--ease-out); }
+```
 
 ### Accordion / height: the one layout exception
 
@@ -371,10 +421,10 @@ const gentle = { type: "spring", stiffness: 200, damping: 22 };  // larger surfa
 2. **Jank:** DevTools > Performance, 4x CPU throttle, scroll and hover the touchpoints. No "Layout" during hover/reveal, no long frames. Rendering > Paint flashing: only the animated element should flash.
 2b. **Slow-mo:** DevTools > Animations panel at 10% speed. Check each curve, overshoot and stagger frame by frame; interrupt hover/toggle mid-flight and confirm it reverses smoothly.
 3. **Doherty:** every click shows feedback in the same frame; nothing UI-level runs past 300ms.
-4. **Touch:** device toolbar on, tap buttons/cards. No stuck hover; hit areas ≥ 44px.
+4. **Touch:** device toolbar on, tap buttons/cards. No stuck hover; hit areas ≥ 44px. Also grep: every `:hover` rule sits inside `@media (hover: hover)` (redesigns often move them out).
 5. **No JS:** disable JS, reload. All content visible.
 6. **Lighthouse mobile:** CLS ≈ 0, LCP not worse than before.
-7. **Appeal pass (12):** same easing and duration family everywhere; nothing moves that a user does 10x a minute.
+7. **Appeal pass (12):** same easing and duration family everywhere; keyboard-repeat actions stay instant; and look for anything that changes state on a click with no motion at all. That's the more common miss.
 
 If `agent-browser` is available, run 1, 4 and 5 with it and screenshot. Otherwise list the steps for the user.
 
@@ -383,7 +433,7 @@ If `agent-browser` is available, run 1, 4 and 5 with it and screenshot. Otherwis
 - `transition: all`, or animations on every element
 - Whole-page fade-in on load
 - Bounce/elastic on buttons or text, typing effects, infinite pulses on CTAs
-- Animated keyboard navigation / tab switches (frequency of use)
+- Animated keyboard-repeat actions (arrow-key movement through a list or palette, results re-animating on every search keystroke)
 - Hover-only affordances with no touch equivalent
 - A colored bar down the left edge of the selected/active row (palette, sidebar, list). Use a plain background fill and ink-colored text instead.
 - A thin accent underline gliding under tabs. Slide a folder or segmented surface instead.
