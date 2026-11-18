@@ -1,6 +1,6 @@
 ---
 name: subtle-motion
-description: Add subtle, polished animations to any website (plain HTML/CSS, React, Next, Vue, Svelte, Astro) so it feels better without feeling "animated", while staying responsive and jank-free at 60fps on low-end phones. Applies the 12 Disney animation principles adapted for UI plus the motion-relevant Laws of UX (Fitts, Hick, Miller, Doherty, Postel, Jakob, frequency of use). Leans toward more motion rather than less. Use when the user types /subtle-motion, or asks to "make the site feel nicer/smoother", "add subtle animations", "add micro-interactions", "polish the motion", "add scroll reveals", "add hover effects", or "make it feel less static". Prefer this over `animate` unless the user wants Framer Motion / React-specific patterns.
+description: Add subtle, polished animations to any website (plain HTML/CSS, React, Next, Vue, Svelte, Astro) so it feels better without feeling "animated", while staying responsive and jank-free at 60fps on low-end phones. Applies the 12 Disney animation principles adapted for UI plus the motion-relevant Laws of UX (Fitts, Hick, Miller, Doherty, Postel, Jakob, frequency of use). Leans toward more motion rather than less. Use when the user types /subtle-motion, or asks to "make the site feel nicer/smoother", "add subtle animations", "add micro-interactions", "polish the motion", "add scroll reveals", "add hover effects", or "make it feel less static". Prefer this over `animate` unless the user wants Framer Motion / React-specific patterns. Uses anime.js (after asking) for JS-driven motion in framework projects.
 ---
 
 # Subtle Motion
@@ -20,7 +20,7 @@ Sources: Disney's *The Illusion of Life*, Jon Yablonski's *Laws of UX*, Raphael 
 6. **Doherty threshold: respond within 100ms, finish within 400ms.** Feedback (press state, pending state) starts on the same frame as input. Anything slower than 400ms shows progress.
 7. **`prefers-reduced-motion: reduce` kills movement.** Opacity fades may stay.
 8. **Hover effects only under `@media (hover: hover)`.** Touch gets sticky hovers otherwise.
-9. **CSS first, no animation libraries** unless the project already has one. No JS loops when CSS can do it.
+9. **CSS first.** The only library this skill adds is anime.js, and only after the user says yes (see "anime.js"). A project that already has a motion library keeps using it. No JS loops when CSS can do it.
 10. **Never delay or hide content.** Reveals must not hide content if JS fails, block clicks, or animate the LCP element on load.
 11. **Staging: one focal motion at a time.** Cover as many touchpoints as the page has; just never two things competing for the eye in the same moment.
 12. **`will-change` only during the animation** (or on ≤3 persistent elements).
@@ -60,7 +60,7 @@ Pick the ones that fit the touchpoint; never all at once. Each maps to a pattern
 
 ## Workflow
 
-1. **Read the site first.** Framework, CSS approach (Tailwind, CSS modules, plain), existing motion and tokens. Reuse them.
+1. **Read the site first.** Framework, CSS approach (Tailwind, CSS modules, plain), existing motion and tokens. Reuse them. If it is a framework project with no motion library, ask once whether to add anime.js (see "anime.js").
 2. **Classify each interactive element by frequency**: rare (signup, checkout, success), occasional (cards, sections, modals), frequent (nav, tabs, filters, sort, list rows), keyboard-repeat (arrow keys, typing). Rare gets the richest motion, frequent gets short slides and fades, keyboard-repeat gets none.
 3. **Cover every touchpoint the page has**, starting with these (ranked by feel-per-cost), then everything else that changes state on a click:
    1. Buttons/links: press squash + hit area (principles 1, Fitts)
@@ -395,18 +395,37 @@ Stack with an index variable; older toasts scale down and tuck behind. Pure tran
 
 View Transitions API (`@view-transition { navigation: auto; }` for MPAs, `document.startViewTransition` for SPAs). Default crossfade, ≤200ms, feature-detect.
 
-## If the project already uses Framer Motion / Motion
+## anime.js (only after the user says yes)
 
-Don't add CSS duplicates; map the tokens:
+CSS stays the default. anime.js is the library this skill uses for the moments where JS-driven motion is nicer than CSS: staggered results, fly-to-cart arcs, real springs, timelines (one thing finishes, the next starts), and counting numbers.
 
-```tsx
-const easeOut = [.23, 1, .32, 1];
-const snappy = { type: "spring", stiffness: 400, damping: 30 };  // UI chrome, interruptible
-const gentle = { type: "spring", stiffness: 200, damping: 22 };  // larger surfaces
-<MotionConfig reducedMotion="user">{app}</MotionConfig>          // respects the OS setting
+**Ask first.** In workflow step 1, if the project uses a framework or bundler where an npm package can be added (React, Next, Vue, Nuxt, Svelte, SvelteKit, Astro, Angular, Solid, Vite...), ask the user once with AskUserQuestion:
+
+- **Keep CSS-only (recommended for small sites)**: no new dependency; every pattern in this file works.
+- **Add anime.js**: `npm i animejs`; the JS-driven moments above use it, everything else stays CSS.
+
+Skip the question when the project already has anime.js (use it) or has another motion library already installed (GSAP, Framer Motion/Motion: use that one instead of adding a second). Plain HTML with no build step: don't ask; stay CSS-only. Never install without a yes.
+
+Map the tokens so CSS and JS motion feel like one system (checked against anime.js 4.5; see animejs.com/documentation for other versions):
+
+```js
+import { animate, stagger, spring, createTimeline } from 'animejs';
+
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const dur = (ms) => (reduce ? 0 : ms);                                 // rule 7
+// spring({ bounce, duration }): duration is the perceived length, so it obeys the <300ms rule.
+// (createSpring() is deprecated in 4.5; stiffness/damping springs settle in ~700ms+, too slow for UI.)
+const snappy = spring({ bounce: .1, duration: 250 });                  // UI chrome, interruptible
+const gentle = spring({ bounce: .15, duration: 300 });                 // larger surfaces
+
+// Results refresh (filters/sort): same values as the CSS pattern
+animate('.item', { opacity: { from: 0 }, y: { from: 6 }, duration: dur(200), ease: 'outQuint', delay: stagger(30) });
+
+// Count up a total when it changes
+animate(totalObj, { value: newTotal, duration: dur(300), ease: 'outQuint', onUpdate: () => (el.textContent = money(totalObj.value)) });
 ```
 
-`AnimatePresence` for exits, `layoutId` for shared elements, `layout` for reflow. Same rules: small distances, < 300ms, no bouncy springs (damping < 20) on chrome.
+Same rules as CSS: transform and opacity only (`x`, `y`, `scale`, `rotate`, `opacity`), small distances, under 300ms, `bounce` ≤ .15 on UI chrome. In frameworks, start animations in a mount/effect hook and `revert()` them on unmount.
 
 ## Performance guardrails
 

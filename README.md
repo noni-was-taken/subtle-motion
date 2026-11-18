@@ -9,7 +9,7 @@ It turns the 12 Disney animation principles and the motion-relevant Laws of UX (
 - error shake, success ring, pending states that respect the 400ms Doherty threshold
 - scroll reveals that never hide content without JS, chunked stagger
 - native `<dialog>`/`popover` overlays, folder tabs, accordions via `interpolate-size`, directional steps, toast stacks
-- hard rules: animate only `transform` and `opacity`, keep UI motion under 300ms, respect `prefers-reduced-motion`, hover only on `(hover: hover)`, no animation libraries
+- hard rules: animate only `transform` and `opacity`, keep UI motion under 300ms, respect `prefers-reduced-motion`, hover only on `(hover: hover)`, CSS-first (anime.js only if you say yes, in framework projects)
 - a required verification pass: reduced motion, 4x CPU throttle, slow-mo, touch, no-JS, Lighthouse
 
 ## Install
